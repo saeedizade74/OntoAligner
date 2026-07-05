@@ -1,5 +1,11 @@
 ## Changelog
 
+### V1.9.2 Changelog (July 5, 2026)
+- Update requirements.
+- Optimize the LLM loadings and use `BitsAndBytesConfig`.
+- Minor adjustment the RAG documentations.
+- Relevant issue: [#106](https://github.com/sciknoworg/OntoAligner/issues/106)
+
 ### V1.9.1 Changelog (July 2, 2026)
 - Fix typo in ensemble aligner code and documentation.
 - Update readme.
