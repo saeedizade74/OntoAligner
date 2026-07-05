@@ -65,6 +65,7 @@ class LLM(BaseOMModel):
                  top_p: float=1.0,
                  sleep: int=5,
                  huggingface_access_token: str=None,
+                 load_in_8bit: bool=False,
                  device_map: str='balanced',
                  openai_key: str="None",
                  **kwargs) -> None:
@@ -79,6 +80,7 @@ class LLM(BaseOMModel):
                          top_p=top_p,
                          sleep=sleep,
                          huggingface_access_token=huggingface_access_token,
+                         load_in_8bit=load_in_8bit,
                          device_map=device_map,
                          openai_key=openai_key,
                          **kwargs)
@@ -465,39 +467,38 @@ class DecoderLLMArch(BaseLLMArch):
         Args:
             path (str): Path to the pretrained tokenizer.
         """
-        llm_req_special_tk = self.check_list_llms(path, self.llms_with_special_tk)
-        llm_req_hugging_tk = self.check_list_llms(path, self.llms_with_hugging_tk)
+        kwargs = {}
+        if self.kwargs.get("huggingface_access_token"):
+            kwargs["token"] = self.kwargs["huggingface_access_token"]
 
-        if llm_req_special_tk and llm_req_hugging_tk:
-            self.tokenizer = self.tokenizer.from_pretrained(path, token=self.kwargs['huggingface_access_token'], padding_side="left")
-        elif llm_req_special_tk:
-            self.tokenizer = self.tokenizer.from_pretrained(path, padding_side="left")
-        elif llm_req_hugging_tk:
-            self.tokenizer = self.tokenizer.from_pretrained(path, token=self.kwargs['huggingface_access_token'])
-        else:
-            self.tokenizer = self.tokenizer.from_pretrained(path)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
+        if self.check_list_llms(path, self.llms_with_special_tk):
+            kwargs["padding_side"] = "left"
+
+        self.tokenizer = self.tokenizer.from_pretrained(path, **kwargs)
+        # Use EOS token for padding if no pad token exists
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
 
     def load_model(self, path: str) -> None:
         """
-        Loads the model with device-specific configurations and handles requirements for Hugging Face token access.
-        Adjusts precision and device mapping for non-CPU devices if specified.
+        Load a pretrained model with optional 8-bit quantization and
+        Hugging Face authentication.
 
         Args:
-            path (str): Path to the pretrained model.
+            path (str): Path or Hugging Face model ID.
         """
-        llm_req_hugging_tk = self.check_list_llms(path, self.llms_with_hugging_tk)
+        kwargs = {}
+        if self.kwargs.get("huggingface_access_token"):
+            kwargs["token"] = self.kwargs["huggingface_access_token"]
+
+        if self.kwargs.get("load_in_8bit", False):
+            from transformers import BitsAndBytesConfig
+            kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
 
         if self.kwargs["device"] != "cpu":
-            if llm_req_hugging_tk:
-                self.model = self.model.from_pretrained(path, load_in_8bit=True, device_map=self.kwargs['device_map'], token=self.kwargs['huggingface_access_token'])
-            else:
-                self.model = self.model.from_pretrained(path, load_in_8bit=True, device_map="balanced")
-        else:
-            self.model = self.model.from_pretrained(path, token=self.kwargs['huggingface_access_token'])
-            if llm_req_hugging_tk:
-                self.model = self.model.from_pretrained(path, token=self.kwargs['huggingface_access_token'])
-            else:
-                self.model = self.model.from_pretrained(path)
+            kwargs["device_map"] = self.kwargs["device_map"]
 
-            self.model.to(self.kwargs["device"])
+        self.model = self.model.from_pretrained(path, **kwargs)
+
+        if self.kwargs["device"] == "cpu":
+            self.model.to("cpu")

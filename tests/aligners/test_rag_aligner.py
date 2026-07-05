@@ -61,7 +61,7 @@ class TestRAGBasedDecoderLLMArch(unittest.TestCase):
         self.model.load("dummy_path")
 
         # Verify tokenizer and model were loaded
-        mock_tokenizer_class.assert_called_once_with("dummy_path")
+        mock_tokenizer_class.assert_called_once_with("dummy_path", token="dummy_token")
         mock_model_class.assert_called_once_with("dummy_path", token="dummy_token")
 
     def test_check_answer_set_tokenizer(self):
