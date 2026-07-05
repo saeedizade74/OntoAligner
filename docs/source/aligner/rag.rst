@@ -37,6 +37,10 @@ This offers a RAG approach within LLMs for OM. LLMs4OM uses :math:`O_{source}` a
 Usage
 ----------------
 
+.. sidebar::
+
+	* ``"load_in_8bit": True`` is used to load the model in 8-bit precision. The default is ``False``.
+
 This guide walks you through the process of ontology matching using the OntoAligner library, leveraging RAG techniques. Starting with the necessary module imports, it defines a task and loads source and target ontologies along with reference matchings. The tutorial then encodes the ontologies using a specialized encoder, configures a retriever and an LLM, and generates predictions. Finally, it demonstrates two postprocessing techniques—heuristic and hybrid—followed by saving the matched alignments in XML format, ready for use or further analysis.
 
 .. code-block:: python
@@ -66,7 +70,9 @@ This guide walks you through the process of ontology matching using the OntoAlig
     #Step 4. Configure the Retriever and LLM
     retriever_config = {"device": 'cuda', "top_k": 5, "threshold": 0.1}
     llm_config = {
-            "device": "cuda", "batch_size": 32,
+            "device": "cuda",
+            "batch_size": 32,
+            "load_in_8bit": True,
             "answer_set": {"yes": ["yes", "true"], "no": ["no", "false"]}
         }
     }
@@ -95,6 +101,7 @@ This guide walks you through the process of ontology matching using the OntoAlig
     output_file_path = "matchings.xml"
     with open(output_file_path, "w", encoding="utf-8") as xml_file:
         xml_file.write(xml_str)
+
 
 
 
