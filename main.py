@@ -2,12 +2,12 @@ from ontoaligner.ontology import AgenticXDDataset
 from helper import to_xml
 task = AgenticXDDataset()
 
-to_xml('datasets/DPP/Logs4batch_id 1.ttl',"datasets/DPP/Logs4batch_id 1.xml")
-to_xml('datasets/DPP/Logs4batch_id 2.ttl',"datasets/DPP/Logs4batch_id 2.xml")
+to_xml('assets/AXD/DPP/Logs4batch_id 1.ttl',"assets/AXD/DPP/Logs4batch_id 1.xml")
+to_xml('assets/AXD/DPP/Logs4batch_id 2.ttl',"assets/AXD/DPP/Logs4batch_id 2.xml")
 
 dataset = task.collect(
-    source_ontology_path="datasets/DPP/Logs4batch_id 1.xml",
-    target_ontology_path="datasets/DPP/Logs4batch_id 2.xml",
+    source_ontology_path="assets/AXD/DPP/Logs4batch_id 1.xml",
+    target_ontology_path="assets/AXD/DPP/Logs4batch_id 2.xml",
 )
 
 # print(dataset)

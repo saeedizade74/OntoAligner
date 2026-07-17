@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/hasAccessPermission">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain rdf:resource="http://www.semanticweb.org/DPP_Skeleton/DataElementReification"/>
+    <rdfs:range rdf:resource="http://www.semanticweb.org/DPP_Skeleton/AccessPermission"/>
+    <rdfs:label>hasAccessPermission</rdfs:label>
+    <rdfs:comment>Attaches an Access Permission (multi-value data element) to any data element (e.g., Battery Identifier, Put Into Service Date) to specify who is permitted to access it.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/ProvisionLocationValue">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/DPP_Skeleton/ValueElementReification"/>
+    <rdfs:label>Provision Location Value</rdfs:label>
+    <rdfs:comment>Value element carrying a controlled string for a provisioning location of the battery identifier. Example DataElement_Value values: 'BatteryLabel', 'Packaging', 'AccompanyingDocument', 'Online'.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/hasPermittedAudience">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:subPropertyOf rdf:resource="http://www.semanticweb.org/DPP_Skeleton/has_Value_Element"/>
+    <rdfs:domain rdf:resource="http://www.semanticweb.org/DPP_Skeleton/AccessPermission"/>
+    <rdfs:range rdf:resource="http://www.semanticweb.org/DPP_Skeleton/PermittedAudienceValue"/>
+    <rdfs:label>hasPermittedAudience</rdfs:label>
+    <rdfs:comment>Specialized value-link for Access Permission listing audiences (as PermittedAudienceValue) permitted to access the associated data element. Presence of a value with DataElement_Value 'Public' answers whether the identifier (or another element) is publicly accessible.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/linksToDPP">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain rdf:resource="http://www.semanticweb.org/DPP_Skeleton/BatteryIdentifier"/>
+    <rdfs:range rdf:resource="http://www.semanticweb.org/DPP_Skeleton/DPP"/>
+    <rdfs:label>linksToDPP</rdfs:label>
+    <rdfs:comment>Connects a Battery Identifier data element to the DPP (battery passport) it enables access to. Used to answer which battery passport is linked to a battery item via the identifier.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/LowerOperationalVoltageLimitReference">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/DPP_Skeleton/SingleValueDataElement"/>
+    <rdfs:label>Lower Operational Voltage Limit Reference</rdfs:label>
+    <rdfs:comment>Single value data element containing the lower operational voltage limit used as reference for determining deep discharge events of the battery item. The referenced limit value is given via DataElement_Value (e.g., numeric value) and, if needed, its unit may be provided by an adjacent unit data element.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/hascity">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:label>hascity</rdfs:label>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/AccessPermission">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/DPP_Skeleton/MultiValueDataElement"/>
+    <rdfs:label>Access Permission</rdfs:label>
+    <rdfs:comment>Multi-value data element that specifies which audiences are permitted to access a given data element (e.g., Battery Identifier, Put Into Service Date). Each permitted audience is represented by a PermittedAudienceValue value element.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/PutIntoServiceDate">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/DPP_Skeleton/SingleValueDataElement"/>
+    <rdfs:label>Put Into Service Date</rdfs:label>
+    <rdfs:comment>Single value data element capturing the date/time when the battery item was put into service. The actual timestamp is given via DataElement_Value with xsd:dateTimeStamp. Access control is attached via hasAccessPermission.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/hasProvisionLocation">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain rdf:resource="http://www.semanticweb.org/DPP_Skeleton/BatteryIdentifier"/>
+    <rdfs:range rdf:resource="http://www.semanticweb.org/DPP_Skeleton/IdentifierProvisionLocation"/>
+    <rdfs:label>hasProvisionLocation</rdfs:label>
+    <rdfs:comment>Links a Battery Identifier data element to its Identifier Provision Location multi-value data element that lists where the identifier is provided.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/hasProvisionLocationValue">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:subPropertyOf rdf:resource="http://www.semanticweb.org/DPP_Skeleton/has_Value_Element"/>
+    <rdfs:domain rdf:resource="http://www.semanticweb.org/DPP_Skeleton/IdentifierProvisionLocation"/>
+    <rdfs:range rdf:resource="http://www.semanticweb.org/DPP_Skeleton/ProvisionLocationValue"/>
+    <rdfs:label>hasProvisionLocationValue</rdfs:label>
+    <rdfs:comment>Specialized value-link for Identifier Provision Location listing locations (as ProvisionLocationValue). Presence of a value with DataElement_Value 'BatteryLabel' answers whether the identifier is provided on the battery label; other values provide alternative locations.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/IdentifierProvisionLocation">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/DPP_Skeleton/MultiValueDataElement"/>
+    <rdfs:label>Identifier Provision Location</rdfs:label>
+    <rdfs:comment>Multi-value data element listing where the battery identifier is provided (e.g., BatteryLabel, Packaging, AccompanyingDocument, Online). Values are ProvisionLocationValue instances; presence of value 'BatteryLabel' answers whether the identifier is on the battery label; other values cover alternatives when labeling directly on the item is not feasible.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/PermittedAudienceValue">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/DPP_Skeleton/ValueElementReification"/>
+    <rdfs:label>Permitted Audience Value</rdfs:label>
+    <rdfs:comment>Value element carrying a controlled string naming an audience permitted to access the linked data element. Example DataElement_Value values: 'Public', 'EconomicOperator', 'MarketSurveillanceAuthority', 'ServiceProvider'.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/BatteryIdentifier">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/DPP_Skeleton/SingleValueDataElement"/>
+    <rdfs:label>Battery Identifier</rdfs:label>
+    <rdfs:comment>Single value data element containing the unique identifier of a battery item that enables a link to the DPP (battery passport). The identifier string is given via DataElement_Value.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/hasBatteryIdentifier">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain rdf:resource="http://www.semanticweb.org/DPP_Skeleton/BatteryItem"/>
+    <rdfs:range rdf:resource="http://www.semanticweb.org/DPP_Skeleton/BatteryIdentifier"/>
+    <rdfs:label>hasBatteryIdentifier</rdfs:label>
+    <rdfs:comment>Links a Battery Item to its Battery Identifier data element, whose DataElement_Value is the unique identifier enabling linkage to the DPP.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/ExtremeTemperatureExposureUnit">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/DPP_Skeleton/SingleValueDataElement"/>
+    <rdfs:label>Extreme Temperature Exposure Unit</rdfs:label>
+    <rdfs:comment>Single value data element indicating the unit used to express the time spent by the battery item in extreme temperatures above a boundary (e.g., 'hour', 'minute'). The unit string is given via DataElement_Value.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/PostAccidentRequiredSafetyAssessment">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/DPP_Skeleton/SingleValueDataElement"/>
+    <rdfs:label>Post-Accident Required Safety Assessment</rdfs:label>
+    <rdfs:comment>Single value data element specifying the battery safety assessment that must follow identification of an accident event for the battery item. The assessment name/procedure is given via DataElement_Value.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/BatteryItem">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>Battery Item</rdfs:label>
+    <rdfs:comment>Represents a single physical battery item to which a DPP refers. Used in CQs that link a battery item to its battery passport (DPP) via an identifier.</rdfs:comment>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton/hasName">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:label>hasName</rdfs:label>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://www.semanticweb.org/DPP_Skeleton">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Ontology"/>
+  </rdf:Description>
+</rdf:RDF>
