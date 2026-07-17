@@ -91,11 +91,11 @@ def label_similarity(a: str, b: str) -> float:
 # Candidate pruning over full concept lists
 # ---------------------------------------------------------------------------
 
-def _extract_label(concept: Any, label_key: str) -> str:
+def _extract_label(concept: Any, label_key='label') -> str:
     """Concept can be a dict (OntoAligner concept repr) or a plain string."""
     if isinstance(concept, dict):
         # OntoAligner concept dicts commonly use 'label' or 'name'
-        return concept.get(label_key) or concept.get("label") or concept.get("name") or ""
+        return concept.get(label_key) or concept.get("label") or concept.get("iri").split('/')[-1] or ""
     return str(concept)
 
 
