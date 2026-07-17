@@ -1,4 +1,4 @@
-from OntoAligner.ontoaligner.ontology import AgenticXDDataset
+from ontoaligner.ontology import AgenticXDDataset
 from helper import to_xml
 task = AgenticXDDataset()
 
