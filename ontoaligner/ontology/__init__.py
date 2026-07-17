@@ -18,3 +18,4 @@ from .property import OntologyProperty, PropertyOMDataset, ProcessingStrategy
 from .kg import FLORAOntology, FLORAOMDataset, \
                 FLORAOpenEAKnowledgeBase, FLORAOpenEAOMDataset, \
                 FLORADBpedia15KKnowledgeBase, FLORADBpediaOMDataset
+from .agenticXD import *
