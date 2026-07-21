@@ -1,21 +1,23 @@
-"""
-Candidate pruning for ontology alignment using lightweight string similarity.
 
-Reduces the O(|source| * |target|) cross-product of concept pairs down to a
-much smaller candidate set before sending anything to an LLM.
-
-Similarity combines:
-  - normalized exact match (lowercase, underscores/dashes/camelCase -> spaces)
-  - substring containment (one label contained in the other)
-  - subword/token Jaccard overlap
-  - difflib fuzzy ratio (character-level, catches near-misses/typos)
-
-No external dependencies (uses stdlib `re` and `difflib`).
-"""
 
 import re
 from difflib import SequenceMatcher
-from typing import Iterable, List, Sequence, Tuple, Dict, Any
+from collections import defaultdict
+from collections import Counter
+import math
+
+# ---------------------------------------------------------------------------
+# Optional WordNet support
+# ---------------------------------------------------------------------------
+
+try:
+    import nltk
+    from nltk.corpus import wordnet as wn
+    _HAS_WORDNET = True
+    nltk.download('wordnet')
+    nltk.download('omw-1.4')
+except ImportError:
+    _HAS_WORDNET = False
 
 
 # ---------------------------------------------------------------------------
@@ -26,142 +28,283 @@ _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _NON_ALNUM = re.compile(r"[^a-z0-9]+")
 
 
-def normalize_label(text: str) -> str:
+def normalize_label(text):
     """
-    Lowercase, split camelCase, and turn underscores/dashes/other separators
-    into single spaces. E.g. "HasChemical_Property-ID" -> "has chemical property id"
+    'HasChemical_Property-ID' -> 'has chemical property id'
+    'BankPaymentInKindInterest' -> 'bank payment in kind interest'
     """
     if not text:
         return ""
-    text = _CAMEL_BOUNDARY.sub(" ", text)          # split camelCase
-    text = _NON_ALNUM.sub(" ", text.lower())        # kill _, -, punctuation
+    text = _CAMEL_BOUNDARY.sub(" ", text)
+    text = _NON_ALNUM.sub(" ", text.lower())
     return re.sub(r"\s+", " ", text).strip()
 
 
-def get_subwords(text: str) -> set:
-    """Return the set of normalized subword tokens for a label."""
+def get_tokens(text):
     return set(normalize_label(text).split())
 
 
 # ---------------------------------------------------------------------------
-# Similarity scoring
+# WordNet helpers
 # ---------------------------------------------------------------------------
 
-def token_jaccard(a_tokens: set, b_tokens: set) -> float:
-    if not a_tokens or not b_tokens:
+# small cache so we don't re-query synsets thousands of times
+_synset_cache = {}
+_wn_sim_cache = {}
+
+# short function words that shouldn't drive similarity
+_STOP_WORDS = frozenset({
+    "a", "an", "the", "of", "in", "on", "at", "to", "for",
+    "is", "are", "was", "were", "be", "has", "had", "have",
+    "and", "or", "but", "not", "with", "by", "from", "as",
+})
+
+
+def _get_synsets(word):
+    if word not in _synset_cache:
+        _synset_cache[word] = wn.synsets(word) if _HAS_WORDNET else []
+    return _synset_cache[word]
+
+
+def wordnet_word_sim(w1, w2):
+    """
+    Best WordNet path similarity between two individual words.
+    Returns 0.0-1.0, or 0.0 if no relation found.
+    """
+    if not _HAS_WORDNET:
         return 0.0
-    inter = len(a_tokens & b_tokens)
-    union = len(a_tokens | b_tokens)
+
+    key = (w1, w2) if w1 <= w2 else (w2, w1)
+    if key in _wn_sim_cache:
+        return _wn_sim_cache[key]
+
+    best = 0.0
+    for s1 in _get_synsets(w1):
+        for s2 in _get_synsets(w2):
+            sim = s1.path_similarity(s2)
+            if sim and sim > best:
+                best = sim
+    _wn_sim_cache[key] = best
+    return best
+
+
+def wordnet_token_similarity(tokens_a, tokens_b):
+    """
+    For each content word in the smaller set, find the best WordNet match
+    in the larger set. Returns average of best matches.
+    Gives partial credit for synonyms/hypernyms (money~cash) without
+    inflating scores for stop words.
+    """
+    if not _HAS_WORDNET:
+        return 0.0
+
+    # filter out stop words — they shouldn't drive similarity
+    a = [t for t in tokens_a if t not in _STOP_WORDS and len(t) > 2]
+    b = [t for t in tokens_b if t not in _STOP_WORDS and len(t) > 2]
+
+    if not a or not b:
+        return 0.0
+
+    # always iterate over the smaller set
+    if len(a) > len(b):
+        a, b = b, a
+
+    total = 0.0
+    for wa in a:
+        best = 0.0
+        for wb in b:
+            if wa == wb:
+                best = 1.0
+                break
+            sim = wordnet_word_sim(wa, wb)
+            if sim > best:
+                best = sim
+        total += best
+
+    return total / len(a)
+
+
+# ---------------------------------------------------------------------------
+# Core similarity scoring
+# ---------------------------------------------------------------------------
+
+def token_jaccard(a_list, b_list):
+    if not a_list or not b_list:
+        return 0.0
+    inter = len(list((Counter(a_list) & Counter(b_list)).elements()))
+    union = len(list((Counter(a_list) | Counter(b_list)).elements()))
     return inter / union if union else 0.0
 
 
-def fuzzy_ratio(a_norm: str, b_norm: str) -> float:
+def containment_score(a_norm, b_norm):
+    """How much of the shorter string is contained in the longer one."""
+    if not a_norm or not b_norm:
+        return 0.0
+    if a_norm in b_norm or b_norm in a_norm:
+        shorter, longer = sorted([a_norm, b_norm], key=len)
+        return len(shorter) / len(longer)
+    return 0.0
+
+
+def fuzzy_ratio(a_norm, b_norm):
     if not a_norm or not b_norm:
         return 0.0
     return SequenceMatcher(None, a_norm, b_norm).ratio()
 
 
-def label_similarity(a: str, b: str) -> float:
+def token_overlap_ratio(a_tokens, b_tokens):
     """
-    Combined similarity score in [0, 1] between two raw labels.
-    Weighted blend: exact/substring gets strong credit, token overlap and
-    fuzzy ratio fill in for partial/near matches.
+    What fraction of the smaller token set appears in the larger one.
+    Catches cases like {payment, in, kind, interest} vs {interest, payment, in, kind}
+    where Jaccard is high, but also partial overlaps where the smaller set
+    is mostly covered.
     """
-    a_norm, b_norm = normalize_label(a), normalize_label(b)
+    if not a_tokens or not b_tokens:
+        return 0.0
+    smaller, larger = sorted([a_tokens, b_tokens], key=len)
+    if not smaller:
+        return 0.0
+    return len(smaller & larger) / len(smaller)
+
+
+def label_similarity(a, b):
+    """
+    Combined similarity in [0, 1] between two raw labels.
+
+    Handles:
+      - exact match after normalization
+      - word reordering (token Jaccard + overlap ratio)
+      - substring containment
+      - character-level fuzzy matching
+      - WordNet synonym similarity (if nltk available)
+
+    Weights:
+      - token_jaccard:     0.30  (order-independent word overlap)
+      - overlap_ratio:     0.20  (how much of smaller set is covered)
+      - fuzzy_ratio:       0.15  (character-level, catches typos)
+      - containment:       0.10  (one label inside another)
+      - wordnet_sim:       0.25  (semantic similarity for non-identical words)
+    """
+    a_norm = normalize_label(a)
+    b_norm = normalize_label(b)
+
     if not a_norm or not b_norm:
         return 0.0
-
     if a_norm == b_norm:
         return 1.0
 
-    a_tokens, b_tokens = set(a_norm.split()), set(b_norm.split())
-    jaccard = token_jaccard(a_tokens, b_tokens)
+    a_tokens = set(a_norm.split())
+    b_tokens = set(b_norm.split())
+
+    jacc = token_jaccard(a_tokens, b_tokens)
+    overlap = token_overlap_ratio(a_tokens, b_tokens)
     ratio = fuzzy_ratio(a_norm, b_norm)
+    contain = containment_score(a_norm, b_norm)
 
-    # substring containment (handles e.g. "cell" vs "cell type")
-    containment = 0.0
-    if a_norm in b_norm or b_norm in a_norm:
-        shorter, longer = sorted([a_norm, b_norm], key=len)
-        containment = len(shorter) / len(longer)
+    if _HAS_WORDNET:
+        wn_sim = wordnet_token_similarity(a_tokens, b_tokens)
+        score = (
+            0.30 * jacc
+            + 0.20 * overlap
+            + 0.15 * ratio
+            + 0.10 * contain
+            + 0.25 * wn_sim
+        )
+    else:
+        # without wordnet, redistribute weight to token-level signals
+        score = (
+            0.35 * jacc
+            + 0.25 * overlap
+            + 0.25 * ratio
+            + 0.15 * contain
+        )
 
-    return max(0.5 * jaccard + 0.5 * ratio, containment)
+    # containment alone can indicate a strong match (e.g. "cell" in "cell type")
+    # so use it as a floor
+    return max(score, contain * 0.8)
 
 
 # ---------------------------------------------------------------------------
-# Candidate pruning over full concept lists
+# Concept label extraction
 # ---------------------------------------------------------------------------
 
-def _extract_label(concept: Any, label_key='label') -> str:
-    """Concept can be a dict (OntoAligner concept repr) or a plain string."""
+def _extract_label(concept, label_key="label"):
     if isinstance(concept, dict):
-        # OntoAligner concept dicts commonly use 'label' or 'name'
-        return concept.get(label_key) or concept.get("label") or concept.get("iri").split('/')[-1] or ""
+        return (
+            concept.get(label_key)
+            or concept.get("label")
+            or concept.get("iri", "").split("/")[-1]
+            or ""
+        )
     return str(concept)
 
 
-def prune_candidates(
-    source_concepts: Sequence[Any],
-    target_concepts: Sequence[Any],
-    threshold: float = 0.4,
-    label_key: str = "label",
-    top_k: int = None,
-) -> List[Tuple[int, int, float]]:
-    """
-    Compare every source concept against every target concept using
-    label_similarity, and keep only pairs scoring >= threshold.
+# ---------------------------------------------------------------------------
+# Candidate pruning
+# ---------------------------------------------------------------------------
+def FinalScore(scores):
+    return math.sqrt(sum(x**2 for x in scores) / len(scores))       
 
-    Args:
-        source_concepts: list of concept dicts/strings from dataset['source']
-        target_concepts: list of concept dicts/strings from dataset['target']
-        threshold: minimum similarity score to keep a pair (0-1)
-        label_key: dict key holding the concept's display label
-        top_k: if set, keep only the top_k best target matches per source
-                concept (applied after thresholding)
-
-    Returns:
-        List of (source_index, target_index, score) tuples, sorted by score desc.
+def prune_candidates(source_concepts, target_concepts,
+                     threshold=0.4, label_key="label", top_k=None):
     """
-    # Pre-normalize once to avoid recomputation in the double loop
+    Compare every source against every target using label_similarity.
+    Keep pairs scoring >= threshold.
+
+    Uses an inverted index on tokens to avoid full O(n*m) for large ontologies,
+    but falls back to brute force for sources with no token overlap (rare).
+    """
     src_norms = [normalize_label(_extract_label(c, label_key)) for c in source_concepts]
     tgt_norms = [normalize_label(_extract_label(c, label_key)) for c in target_concepts]
     src_tokens = [set(n.split()) for n in src_norms]
     tgt_tokens = [set(n.split()) for n in tgt_norms]
 
-    # Bucket target indices by first token for a cheap inverted-index prefilter.
-    # This avoids full O(n*m) fuzzy_ratio calls when ontologies are large.
-    from collections import defaultdict
-    tgt_by_token: Dict[str, List[int]] = defaultdict(list)
+    # inverted index: token -> list of target indices
+    tgt_by_token = defaultdict(list)
     for j, toks in enumerate(tgt_tokens):
         for t in toks:
             tgt_by_token[t].append(j)
 
-    results: Dict[int, List[Tuple[int, int, float]]] = defaultdict(list)
+    results = defaultdict(list)
 
     for i, (s_norm, s_toks) in enumerate(zip(src_norms, src_tokens)):
         if not s_norm:
             continue
 
-        # candidate target indices: anything sharing at least one token,
-        # plus we still fall back to nothing if there's zero token overlap
-        # (rare — means labels share no subwords at all, likely not a match)
+        # find candidate targets sharing at least one token
         candidate_js = set()
         for t in s_toks:
             candidate_js.update(tgt_by_token.get(t, []))
 
         for j in candidate_js:
-            # reuse precomputed tokens/norms directly for speed:
-            jacc = token_jaccard(s_toks, tgt_tokens[j])
-            ratio = fuzzy_ratio(s_norm, tgt_norms[j])
-            containment = 0.0
-            if s_norm and tgt_norms[j] and (s_norm in tgt_norms[j] or tgt_norms[j] in s_norm):
-                shorter, longer = sorted([s_norm, tgt_norms[j]], key=len)
-                containment = len(shorter) / len(longer)
-            score = max(0.5 * jacc + 0.5 * ratio, containment)
+            t_norm = tgt_norms[j]
+            t_toks = tgt_tokens[j]
+
+            jacc = token_jaccard(s_toks, t_toks)
+            overlap = token_overlap_ratio(s_toks, t_toks)
+            ratio = fuzzy_ratio(s_norm, t_norm)
+            contain = containment_score(s_norm, t_norm)
+
+            if _HAS_WORDNET:
+                wn_sim = wordnet_token_similarity(s_toks, t_toks)
+                score = FinalScore(
+                    [jacc,
+                     overlap,
+                     ratio,
+                     contain,
+                     wn_sim])
+            else:
+                score = FinalScore(
+                   [jacc,
+                     overlap,
+                     ratio,
+                     contain])
+
 
             if score >= threshold:
                 results[i].append((i, j, score))
 
-    pairs: List[Tuple[int, int, float]] = []
+    pairs = []
     for i, lst in results.items():
         lst.sort(key=lambda x: x[2], reverse=True)
         if top_k:
@@ -171,12 +314,3 @@ def prune_candidates(
     pairs.sort(key=lambda x: x[2], reverse=True)
     return pairs
 
-
-if __name__ == "__main__":
-    # quick smoke test
-    source = ["HasChemicalProperty", "Cell_Type", "boiling-point", "Mass"]
-    target = ["chemical_property", "cellType", "BoilingPoint", "AtomicMass", "Color"]
-
-    cand = prune_candidates(source, target, threshold=0.35)
-    for i, j, score in cand:
-        print(f"{source[i]!r:30s} <-> {target[j]!r:20s} score={score:.3f}")

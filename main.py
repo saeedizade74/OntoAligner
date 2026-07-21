@@ -1,146 +1,87 @@
+
 from ontoaligner.ontology import AgenticXDDataset
-from ontoaligner.aligner.pruner.CandidateExtraction  import prune_candidates, _extract_label
+from ontoaligner.aligner.pruner.CandidateExtraction import prune_candidates
+from rdflib import Graph
+from helper import to_xml, get_label, build_candidates_list, create_prompt
 
+source_ontology_path="assets/AXD/DPP/Logs4batch_id 1.xml"
+target_ontology_path="assets/AXD/DPP/Logs4batch_id 2.xml"
 
-## If the the file is TTL, it is turned into XML since it is not supported by OntoAligner yet
-# from helper import to_xml
-# to_xml('assets/AXD/DPP/Logs4batch_id 1.ttl',"assets/AXD/DPP/Logs4batch_id 1.xml")
-# to_xml('assets/AXD/DPP/Logs4batch_id 2.ttl',"assets/AXD/DPP/Logs4batch_id 2.xml")
-'''
 task = AgenticXDDataset()
+print("Creating the dataset ..")
 dataset = task.collect(
-    source_ontology_path="assets/AXD/DPP/Logs4batch_id 1.xml",
-    target_ontology_path="assets/AXD/DPP/Logs4batch_id 2.xml",
-
+    source_ontology_path=source_ontology_path,
+    target_ontology_path=target_ontology_path,
 )
 
-## Seperating source and target classes/ o props and d props into variables
-Source_Ontology_classes = [row for row in dataset['source'] if row['type'] == 'class']
-Source_Ontology_object_properties = [row for row in dataset['source'] if row['type'] == 'object property']
-Source_Ontology_data_properties = [row for row in dataset['source'] if row['type'] == 'data property']
+# separate source and target by type
+Source_classes = [r for r in dataset['source'] if r['type'] == 'class']
+Source_obj_props = [r for r in dataset['source'] if r['type'] == 'object property']
+Source_data_props = [r for r in dataset['source'] if r['type'] == 'data property']
 
-Target_Ontology_classes = [row for row in dataset['target'] if row['type'] == 'class']
-Target_Ontology_object_properties = [row for row in dataset['target'] if row['type'] == 'object property']
-Target_Ontology_data_properties = [row for row in dataset['target'] if row['type'] == 'data property']
+Target_classes = [r for r in dataset['target'] if r['type'] == 'class']
+Target_obj_props = [r for r in dataset['target'] if r['type'] == 'object property']
+Target_data_props = [r for r in dataset['target'] if r['type'] == 'data property']
 
-## Pruning candiates (or RAG)
-Candidate_classes = prune_candidates(Source_Ontology_classes,Target_Ontology_classes, threshold=0.5)
+# load rdf graphs once
+print("Loading RDF graphs ...")
+source_graph = Graph()
+source_graph.parse(source_ontology_path)
+target_graph = Graph()
+target_graph.parse(target_ontology_path)
 
-for i, j, score in Candidate_classes:
-    print(f"{_extract_label(Source_Ontology_classes[i])!r:30s}\
-     <-> {_extract_label(Target_Ontology_classes[j])!r:20s} score={score:.3f}")
-'''
+# prune candidates for all three types
+print("Pruning candidates ...")
+threshold=0.7
+class_pairs = prune_candidates(Source_classes, Target_classes, threshold=threshold)
+obj_prop_pairs = prune_candidates(Source_obj_props, Target_obj_props, threshold=threshold)
+data_prop_pairs = prune_candidates(Source_data_props, Target_data_props, threshold=threshold)
 
+# build the unified candidates list
 
-temp = '''BankCashDistribution
-CashDividendAction
+Candidates = []
 
-BankStockBonusDistribution
-StockDividendAction
+# class candidates
+Candidates += build_candidates_list(
+    class_pairs, Source_classes, Target_classes,
+    Source_obj_props, Source_data_props,
+    Target_obj_props, Target_data_props,
+    source_graph, target_graph,
+)
 
-BankShareSplitAction
-StockSplit
+# object property candidates
+Candidates += build_candidates_list(
+    obj_prop_pairs, Source_obj_props, Target_obj_props,
+    Source_obj_props, Source_data_props,
+    Target_obj_props, Target_data_props,
+    source_graph, target_graph,
+)
 
-BankReverseShareConsolidation
-ReverseStockSplit
+# data property candidates
+Candidates += build_candidates_list(
+    data_prop_pairs, Source_data_props, Target_data_props,
+    Source_obj_props, Source_data_props,
+    Target_obj_props, Target_data_props,
+    source_graph, target_graph,
+)
 
-BankDividendChoiceEvent
-DividendOptionAction
-
-BankDividendReinvestmentPlan
-DividendReinvestmentAction
-
-BankCapitalReturnDistribution
-CapitalDistribution
-
-BankCapitalGainPayout
-CapitalGainsDistribution
-
-BankRightsSubscriptionEvent
-RightsExerciseEvent
-
-BankBonusRightsDistribution
-BonusRightsIssue
-
-BankTenderPurchaseOffer
-TenderOffer
-
-BankIssuerRepurchaseOffer
-RepurchaseOffer
-
-BankOddLotBuybackProgram
-OddLotOffer
-
-BankDutchAuctionBuyback
-DutchAuction
-
-BankSecurityConversionEvent
-ConversionAction
-
-BankConversionSuspensionNotice
-ConversionSuspensionAction
-
-BankPostMergerSecurityExchange
-PostMergerSecuritiesExchange
-
-BankBondCouponPayment
-InterestPaymentAction
-
-BankPaymentInKindInterest
-InterestPaymentInKind
-
-BankPrincipalAndInterestPayment
-InterestPaymentWithPrincipal
-
-BankBondMaturityRedemption
-RedemptionAtMaturityAction
-
-BankIssuerEarlyCallRedemption
-FullCallEarlyRedemptionAction
-
-BankHolderPutRedemption
-PutRedemptionAction
-
-BankPartialPrincipalRedemption
-PartialRedemptionWithReductionOfNominalValueAction
-
-BankParValueRedenomination
-RedenominationAction
-
-BankInterestRateReset
-InterestRateAdjustment
-
-BankBondDefaultNotice
-BondDefaultAction
-
-BankTradingHaltMessage
-TradingStatusSuspendedMessage
-
-BankTradingResumeMessage
-TradingStatusActiveMessage
-
-BankDelistingMessage
-ListingStatusDelistingMessage
-
-BankWorthlessSecurityNotice
-WorthlessSecurityAction
-'''.split('\n')
-temp = [i for i in temp if i != '']
-A = []
-B = []
-for i in range(0,len(temp),2):
-    A.append(temp[i])
-    B.append(temp[i+1])
-
-# print(temp)
-# Source_Ontology_classes = [row for row in dataset['source'] if row['type'] == 'class']
-# Target_Ontology_classes = [row for row in dataset['target'] if row['type'] == 'class']
+print(f"\nTotal candidates: {len(Candidates)}")
+print(f"  Class pairs:         {len(class_pairs)}")
+print(f"  Object prop pairs:   {len(obj_prop_pairs)}")
+print(f"  Data prop pairs:     {len(data_prop_pairs)}")
 
 
-Candidate_classes = prune_candidates(A,B, threshold=0.25)
+# print samples
+print("\n" + "=" * 70)
+print("SAMPLE CANDIDATES")
+print("=" * 70)
 
-for i, j, score in Candidate_classes:
-    print(f"{_extract_label(A[i])!r:30s}\
-     <-> {_extract_label(B[j])!r:20s} score={score:.3f}")
-
-
+for entry in Candidates:
+    src_uri, src_label, tgt_uri, tgt_label, score, src_turtle, tgt_turtle = entry
+    print("=" * 70)
+    print(f"\nSource: {src_label}  ({src_uri})")
+    print(f"Target: {tgt_label}  ({tgt_uri})")
+    print(f"Score:  {score:.3f}")
+    print("=" * 70)
+    print(create_prompt(entry))
+    
