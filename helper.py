@@ -1,6 +1,244 @@
 
 from rdflib import Graph, URIRef
 from rdflib.namespace import RDF, RDFS, SKOS
+import re
+from dotenv import load_dotenv
+from openai import OpenAI
+import re,ast, os
+import openai
+from openai import AzureOpenAI
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
+
+def save_alignment_xml(
+        llm_decisions,
+        output_file,
+        onto1_uri,
+        onto2_uri,
+        relation="=",
+        measure=1.0,
+        alignment_type="??"
+):
+
+    # Register namespaces
+    ALIGN_NS = "http://knowledgeweb.semanticweb.org/heterogeneity/alignment"
+    RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    XSD_NS = "http://www.w3.org/2001/XMLSchema#"
+
+    ET.register_namespace("", ALIGN_NS)
+    ET.register_namespace("rdf", RDF_NS)
+    ET.register_namespace("xsd", XSD_NS)
+
+    # Root RDF element
+    rdf = ET.Element(
+        f"{{{RDF_NS}}}RDF"
+    )
+
+    # Alignment element
+    alignment = ET.SubElement(
+        rdf,
+        f"{{{ALIGN_NS}}}Alignment"
+    )
+
+    # Metadata
+    ET.SubElement(alignment, "xml").text = "yes"
+    ET.SubElement(alignment, "level").text = "0"
+    ET.SubElement(alignment, "type").text = alignment_type
+
+    ET.SubElement(alignment, "onto1").text = onto1_uri
+    ET.SubElement(alignment, "onto2").text = onto2_uri
+
+    ET.SubElement(alignment, "uri1").text = onto1_uri
+    ET.SubElement(alignment, "uri2").text = onto2_uri
+
+
+    # Add accepted mappings only
+    for src_uri, tgt_uri, decision in llm_decisions:
+
+        if str(decision).lower() != "yes":
+            continue
+
+        map_element = ET.SubElement(
+            alignment,
+            "map"
+        )
+
+        cell = ET.SubElement(
+            map_element,
+            "Cell"
+        )
+
+        ET.SubElement(
+            cell,
+            "entity1",
+            {
+                f"{{{RDF_NS}}}resource": src_uri
+            }
+        )
+
+        ET.SubElement(
+            cell,
+            "entity2",
+            {
+                f"{{{RDF_NS}}}resource": tgt_uri
+            }
+        )
+
+        measure_element = ET.SubElement(
+            cell,
+            "measure",
+            {
+                f"{{{RDF_NS}}}datatype": "xsd:float"
+            }
+        )
+
+        measure_element.text = str(measure)
+
+        ET.SubElement(
+            cell,
+            "relation"
+        ).text = relation
+
+
+    # Convert to pretty XML
+    rough_xml = ET.tostring(
+        rdf,
+        encoding="utf-8"
+    )
+
+    pretty_xml = minidom.parseString(
+        rough_xml
+    ).toprettyxml(
+        indent="\t",
+        encoding="utf-8"
+    )
+
+
+    # Remove empty XML lines
+    pretty_xml = b"\n".join(
+        line for line in pretty_xml.splitlines()
+        if line.strip()
+    )
+
+
+    with open(
+        output_file,
+        "wb"
+    ) as f:
+        f.write(pretty_xml)
+
+
+    print(f"Alignment saved to: {output_file}")
+
+load_dotenv()
+def chat_with_Maverick(prompt):
+  endpoint = os.getenv("endpoint_llama"); model_name = "Llama-4-Maverick-17B-128E-Instruct-FP8"
+  deployment_name = "Llama-4-Maverick-17B-128E-Instruct-FP8-2"
+  api_key = os.getenv("api_key_llama");client = OpenAI(base_url=f"{endpoint}",api_key=api_key)
+  completion = client.chat.completions.create(model=deployment_name,
+  messages=[{"role": "user", "content": prompt,}],);return completion.choices[0].message.content
+
+
+def GPT5(prompt):
+    client = AzureOpenAI(azure_endpoint = os.getenv("GPT5_endpoint"), api_version="2025-03-01-preview",api_key=os.getenv("GPT5_api_key"))
+    response = client.chat.completions.create(model=  "GPT-5",messages = [{"role":"system",
+    "content":prompt}],reasoning_effort ='high',stop=None)
+    return response.choices[0].message.content # Access the content attribute
+
+def extract_candidates(source_ontology_path,target_ontology_path,
+        class_pairs, Source_classes, Target_classes,
+        Source_obj_props, Source_data_props,
+        Target_obj_props, Target_data_props,
+        obj_prop_pairs,data_prop_pairs,threshold=0.75):
+    # build the unified candidates list
+    print("Loading RDF graphs ...")
+    source_graph = Graph()
+    source_graph.parse(source_ontology_path)
+    target_graph = Graph()
+    target_graph.parse(target_ontology_path)
+
+    Candidates = []
+
+    # class candidates
+    Candidates += build_candidates_list(
+        class_pairs, Source_classes, Target_classes,
+        Source_obj_props, Source_data_props,
+        Target_obj_props, Target_data_props,
+        source_graph, target_graph,
+    )
+
+    # object property candidates
+    Candidates += build_candidates_list(
+        obj_prop_pairs, Source_obj_props, Target_obj_props,
+        Source_obj_props, Source_data_props,
+        Target_obj_props, Target_data_props,
+        source_graph, target_graph,
+    )
+
+    # data property candidates
+    Candidates += build_candidates_list(
+        data_prop_pairs, Source_data_props, Target_data_props,
+        Source_obj_props, Source_data_props,
+        Target_obj_props, Target_data_props,
+        source_graph, target_graph,
+    )
+    print(f"\nTotal candidates: {len(Candidates)}")
+    print(f"  Class pairs:         {len(class_pairs)}")
+    print(f"  Object prop pairs:   {len(obj_prop_pairs)}")
+    print(f"  Data prop pairs:     {len(data_prop_pairs)}")
+
+
+    return Candidates
+def extract_yes_no_robust(text: str) -> str | None:
+    """Extract a final Yes/No answer from LLM output."""
+
+    text = text.strip()
+
+    patterns = [
+        # Highest confidence: explicit final answer markers
+        r'(?:final answer|answer|output|decision|verdict|result|conclusion)\s*[:\-]?\s*(?:is\s*)?(?:\*\*|__|["\']|\$\\boxed\{)?\s*(yes|no)\s*(?:\}?\$|["\']|\*\*|__)?',
+
+        # "The answer is No"
+        r'the answer is\s*[:\-]?\s*(?:\*\*|__|["\']|\$\\boxed\{)?\s*(yes|no)',
+
+        # "Therefore: Yes"
+        r'(?:therefore|thus|hence)\s*,?\s*(?:the answer is\s*)?(yes|no)',
+
+        # Markdown bold
+        r'\*\*(yes|no)\*\*',
+
+        # Markdown italic
+        r'\*(yes|no)\*',
+
+        # LaTeX boxed
+        r'\\boxed\{\s*(yes|no)\s*\}',
+
+        # Quoted
+        r'["\'](yes|no)["\']',
+    ]
+
+    for pattern in patterns:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            return m.group(1).lower()
+
+    # Fallback: inspect last few non-empty lines
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+
+    for line in reversed(lines[-5:]):
+        # Remove common formatting
+        cleaned = re.sub(
+            r'[\*\_`\.\!\:\-\>\$\{\}\[\]\(\)"\']',
+            '',
+            line,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        m = re.fullmatch(r'(yes|no)', cleaned, re.IGNORECASE)
+        if m:
+            return m.group(1).lower()
+
+    return None
 
 def create_prompt(entry):
     src_uri, src_label, tgt_uri, tgt_label, score, src_turtle, tgt_turtle = entry
