@@ -48,6 +48,28 @@ print(ontoaligner.__version__)
 
 ## 🚀 Quick Tour
 
+### AXDAligner: supports Classes, Object Properties and Data Properties alignment
+Step 1: Modify the existing main.py by adding
+```python
+source_ontology_path="assets/AXD/ce-ce/BiOnto.rdf"
+target_ontology_path="assets/AXD/ce-ce/CEON.rdf"
+save_matches_in="assets/AXD/ce-ce/" #folder to save the results
+
+threshold=0.95 # for pruner (string similarity score before asking the LLM)
+LLM_choice = GPT5 # LLM
+```
+
+Step 2:Create a .env file and add your api (more info in helper.py; there you can add more LLMs):
+```
+GPT5_endpoint=
+GPT5_api_key=
+```
+
+Step3: run this
+python3 main.py
+
+Make sure NLTK is installed
+
 ### End-to-end with `OntoAlignerPipeline`
 
 The fastest way to run an alignment: pick a dataset, an encoder, and an aligner, and let the pipeline handle collection, encoding, prediction, postprocessing, and evaluation.
