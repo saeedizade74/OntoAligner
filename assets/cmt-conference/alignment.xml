@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF xmlns="http://knowledgeweb.semanticweb.org/heterogeneity/alignment" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+	<Alignment>
+		<xml>yes</xml>
+		<level>0</level>
+		<type>AXDAligner</type>
+		<onto1>assets/cmt-conference/source.xml</onto1>
+		<onto2>assets/cmt-conference/target.xml</onto2>
+		<uri1>assets/cmt-conference/source.xml</uri1>
+		<uri2>assets/cmt-conference/target.xml</uri2>
+		<map>
+			<Cell>
+				<entity1 rdf:resource="http://cmt#Reviewer"/>
+				<entity2 rdf:resource="http://conference#Reviewer"/>
+				<measure rdf:datatype="xsd:float">1.0</measure>
+				<relation>=</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell>
+				<entity1 rdf:resource="http://cmt#Person"/>
+				<entity2 rdf:resource="http://conference#Person"/>
+				<measure rdf:datatype="xsd:float">1.0</measure>
+				<relation>=</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell>
+				<entity1 rdf:resource="http://cmt#ProgramCommittee"/>
+				<entity2 rdf:resource="http://conference#Program_committee"/>
+				<measure rdf:datatype="xsd:float">1.0</measure>
+				<relation>=</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell>
+				<entity1 rdf:resource="http://cmt#Conference"/>
+				<entity2 rdf:resource="http://conference#Conference"/>
+				<measure rdf:datatype="xsd:float">1.0</measure>
+				<relation>=</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell>
+				<entity1 rdf:resource="http://cmt#Review"/>
+				<entity2 rdf:resource="http://conference#Review"/>
+				<measure rdf:datatype="xsd:float">1.0</measure>
+				<relation>=</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell>
+				<entity1 rdf:resource="http://cmt#Paper"/>
+				<entity2 rdf:resource="http://conference#Paper"/>
+				<measure rdf:datatype="xsd:float">1.0</measure>
+				<relation>=</relation>
+			</Cell>
+		</map>
+	</Alignment>
+</rdf:RDF>

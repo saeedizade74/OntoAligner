@@ -5,22 +5,22 @@ from ontoaligner.aligner.pruner.CandidateExtraction import prune_candidates
 from rdflib import Graph
 from helper import *
 import os
-
+from evaluation import *
 
 #########################################################################
 # Parameters
 ##########################################################################
 
-threshold=0.95 # for pruner
+threshold=0.85 # for pruner
 LLM_choice = GPT5# or chat_with_Maverick -> LLM
 
 #########################################################################
 # Loading the dataset
 ##########################################################################
-
-source_ontology_path="assets/AXD/ce-ce/BiOnto.rdf"
-target_ontology_path="assets/AXD/ce-ce/CEON.rdf"
-save_matches_in="assets/AXD/ce-ce/" #folder to save the results
+source_ontology_path="assets/cmt-conference/source.xml"
+target_ontology_path="assets/cmt-conference/target.xml"
+save_matches_in="assets/cmt-conference/" #folder to save the results
+gold_file = "assets/cmt-conference/reference.xml"
 
 task = AgenticXDDataset()
 print("Creating the dataset ..")
@@ -70,7 +70,7 @@ for entry in Candidates:
     print('='*70)
     print(src_uri)
     print(tgt_uri)
-    print(yes_no)
+    print("Are the the same? Answer: ",yes_no)
 
 save_alignment_xml(
     llm_decisions=LLM_decisions,
@@ -78,4 +78,17 @@ save_alignment_xml(
     onto1_uri=source_ontology_path,
     onto2_uri=target_ontology_path,
     alignment_type="AXDAligner" 
+)
+
+
+#########################################################################
+# Evaluation
+##########################################################################
+
+
+predicted_file = save_matches_in+"alignment.xml"
+
+evaluate_alignment(
+    gold_file,
+    predicted_file
 )
