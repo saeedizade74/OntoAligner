@@ -48,6 +48,27 @@ print(ontoaligner.__version__)
 
 ## 🚀 Quick Tour
 
+### AXDAligner
+Step 1: Modify the existing main.py by adding
+```python
+source_ontology_path="assets/AXD/DPP/Logs4batch_id 1.xml"
+target_ontology_path="assets/AXD/DPP/Logs4batch_id 2.xml"
+reference_matching_path="assets/AXD/DPP/Matchings.xml" # place to save the results
+threshold=0.95 # for pruner
+LLM_choice = GPT5 # LLM
+```
+
+Step 2:Create a .env file and add your api (more info in helper.py; there you can add more LLMs):
+```
+GPT5_endpoint=
+GPT5_api_key=
+```
+
+Step3: run this
+python3 main.py
+
+Make sure NLTK is installed
+
 ### End-to-end with `OntoAlignerPipeline`
 
 The fastest way to run an alignment: pick a dataset, an encoder, and an aligner, and let the pipeline handle collection, encoding, prediction, postprocessing, and evaluation.
