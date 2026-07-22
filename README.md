@@ -48,13 +48,14 @@ print(ontoaligner.__version__)
 
 ## 🚀 Quick Tour
 
-### AXDAligner
+### AXDAligner: supports Classes, Object Properties and Data Properties alignment
 Step 1: Modify the existing main.py by adding
 ```python
-source_ontology_path="assets/AXD/DPP/Logs4batch_id 1.xml"
-target_ontology_path="assets/AXD/DPP/Logs4batch_id 2.xml"
-reference_matching_path="assets/AXD/DPP/Matchings.xml" # place to save the results
-threshold=0.95 # for pruner
+source_ontology_path="assets/AXD/ce-ce/BiOnto.rdf"
+target_ontology_path="assets/AXD/ce-ce/CEON.rdf"
+save_matches_in="assets/AXD/ce-ce/" #folder to save the results
+
+threshold=0.95 # for pruner (string similarity score before asking the LLM)
 LLM_choice = GPT5 # LLM
 ```
 
