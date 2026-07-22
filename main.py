@@ -4,6 +4,10 @@ from ontoaligner.aligner.pruner.CandidateExtraction import prune_candidates
 from rdflib import Graph
 from helper import to_xml, get_label, build_candidates_list, create_prompt
 
+#########################################################################
+# Loading the dataset
+##########################################################################
+
 source_ontology_path="assets/AXD/DPP/Logs4batch_id 1.xml"
 target_ontology_path="assets/AXD/DPP/Logs4batch_id 2.xml"
 
@@ -14,6 +18,10 @@ dataset = task.collect(
     target_ontology_path=target_ontology_path,
 )
 
+#########################################################################
+# Pruning the search space from n x m to k candidate pairs
+# search with string similarity
+##########################################################################
 # separate source and target by type
 Source_classes = [r for r in dataset['source'] if r['type'] == 'class']
 Source_obj_props = [r for r in dataset['source'] if r['type'] == 'object property']
@@ -64,7 +72,9 @@ Candidates += build_candidates_list(
     Target_obj_props, Target_data_props,
     source_graph, target_graph,
 )
-
+#########################################################################
+# Statistics of the pruned space (k candidatese)
+##########################################################################
 print(f"\nTotal candidates: {len(Candidates)}")
 print(f"  Class pairs:         {len(class_pairs)}")
 print(f"  Object prop pairs:   {len(obj_prop_pairs)}")
@@ -73,15 +83,17 @@ print(f"  Data prop pairs:     {len(data_prop_pairs)}")
 
 # print samples
 print("\n" + "=" * 70)
-print("SAMPLE CANDIDATES")
-print("=" * 70)
+
+#########################################################################
+# Constructing the prompts for k candidates and asking the LLM
+##########################################################################
 
 for entry in Candidates:
     src_uri, src_label, tgt_uri, tgt_label, score, src_turtle, tgt_turtle = entry
-    print("=" * 70)
-    print(f"\nSource: {src_label}  ({src_uri})")
-    print(f"Target: {tgt_label}  ({tgt_uri})")
-    print(f"Score:  {score:.3f}")
-    print("=" * 70)
+    # print("=" * 70)
+    # print(f"\nSource: {src_label}  ({src_uri})")
+    # print(f"Target: {tgt_label}  ({tgt_uri})")
+    # print(f"Score:  {score:.3f}")
+    # print("=" * 70)
     print(create_prompt(entry))
     
