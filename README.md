@@ -65,10 +65,12 @@ GPT5_endpoint=
 GPT5_api_key=
 ```
 
-Step3: run this
+Step 3: run this
 python3 main.py
 
 Make sure NLTK is installed
+
+Step 4: Evaluation; modify the path to gold and predicted and run python3 evaluation.py
 
 ### End-to-end with `OntoAlignerPipeline`
 
